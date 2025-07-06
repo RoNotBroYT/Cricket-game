@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cricket Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #000 60%, #00eaff 100%);
+      font-family: Segoe UI, Arial, sans-serif;
+      color: #00eaff;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 32px;
+      min-height: 100vh;
+    }
+    h2 {
+      color: #00eaff;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+    .info {
+      margin-bottom: 12px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .game-btn {
+      background: #111;
+      color: #00eaff;
+      border: 2px solid #00eaff;
+      padding: 6px 18px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      margin: 10px 0 20px 0;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      box-shadow: 0 0 16px 0 #00eaff22;
+    }
+    .game-btn:hover, .game-btn:focus {
+      background: #00eaff;
+      color: #111;
+    }
+    canvas {
+      background: #10151b;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px 0 #00eaff55;
+      display: block;
+      margin-bottom: 14px;
+      border: 2px solid #00eaff55;
+      outline: none;
+    }
+    .game-over {
+      color: #ff3860;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    @media (max-width: 520px) {
+      canvas {
+        width: 98vw !important;
+        height: auto !important;
+      }
+      h2 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🏏 Cricket Game</h2>
+    <div class="info" id="scoreInfo">Score: 0</div>
+    <button class="game-btn" id="restart">Restart</button>
+    <canvas id="game" width="400" height="320" tabindex="1"></canvas>
+    <div style="color:#aaa;font-size:14px;text-align:center">
+      Click or press <b>Space</b> to swing. try to get high score.<br>
+      You have 3 wickets.
+    </div>
+  </div>
+  <script>
+    
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreInfo = document.getElementById("scoreInfo");
+    const restartBtn = document.getElementById("restart");
+
+    let score = 0;
+    let wickets = 3;
+    let gameOver = false;
+    let batAngle = 0;
+    let swinging = false;
+    let ball, ballSpeed, ballHit, swingWindow, swingPower;
+
+    function randomBallSpeed() {
+      return 4 + Math.random() * 3;
+    }
+
+    function resetBall() {
+      ball = {
+        x: 50,
+        y: 160 + (Math.random() - 0.5) * 60,
+        r: 10,
+        vx: randomBallSpeed(),
+        vy: (Math.random() - 0.5) * 2,
+        hit: false,
+        passed: false,
+        runValue: Math.random() < 0.2 ? 4 : 1 
+      };
+      ballSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+      ballHit = false;
+      swingWindow = false;
+      swingPower = 1;
+    }
+
+    function resetGame() {
+      score = 0;
+      wickets = 3;
+      gameOver = false;
+      batAngle = 0;
+      swinging = false;
+      resetBall();
+      scoreInfo.innerHTML = `Score: 0 | Wickets: 3`;
+      requestAnimationFrame(draw);
+    }
+
+   
+    const batX = 355, batY = 160, batW = 8, batH = 50;
+
+    function drawPitch() {
+      
+      ctx.fillStyle = "#012c34";
+      ctx.fillRect(0, 70, 400, 180);
+
+     
+      ctx.strokeStyle = "#00eaff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(360, 70); ctx.lineTo(360, 250);
+      ctx.stroke();
+
+     
+      ctx.strokeStyle = "#ffe";
+      ctx.lineWidth = 3;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(370, 150 + i*12); ctx.lineTo(370, 190 + i*12);
+        ctx.stroke();
+      }
+    }
+
+    function drawBall() {
+      ctx.save();
+      ctx.shadowColor = "#ffe100";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, 2 * Math.PI);
+      ctx.fillStyle = "#ffe100";
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    function drawBat() {
+      ctx.save();
+      ctx.translate(batX, batY);
+      ctx.rotate(batAngle);
+      ctx.fillStyle = "#00eaff";
+      ctx.shadowColor = "#00eaff";
+      ctx.shadowBlur = 8;
+      ctx.fillRect(-batW/2, -batH/2, batW, batH);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    function drawScore() {
+      scoreInfo.innerHTML = `Score: ${score} | Wickets: ${wickets}${gameOver ? '<span class="game-over"> Game Over!</span>' : ''}`;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPitch();
+      drawBall();
+      drawBat();
+      drawScore();
+
+      if (!gameOver) {
+        update();
+        requestAnimationFrame(draw);
+      }
+    }
+
+  
+    function swingBat() {
+      if (gameOver || swinging) return;
+      swinging = true;
+      let swingFrames = 0;
+     
+      function animateSwing() {
+        swingFrames++;
+        batAngle = -Math.PI/4 * Math.sin(Math.PI * swingFrames / 8);
+        if (swingFrames < 8) {
+          requestAnimationFrame(animateSwing);
+        } else {
+          batAngle = 0;
+          swinging = false;
+        }
+      }
+      animateSwing();
+
+    
+      if (!ball.hit && Math.abs(ball.x - batX) < 22 && Math.abs(ball.y - batY) < 42) {
+     
+        ball.hit = true;
+        score += ball.runValue;
+        swingPower = 1 + Math.random(); 
+        ball.vx = Math.random() * -3 - 5;
+        ball.vy = (Math.random() - 0.5) * 10;
+        setTimeout(resetBall, 700);
+      }
+    }
+
+    function update() {
+      
+      if (!ball.hit) {
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        
+        if (ball.x >= batX + 18 && !ball.hit && !gameOver) {
+          wickets--;
+          if (wickets <= 0) {
+            wickets = 0;
+            gameOver = true;
+          }
+          setTimeout(resetBall, 700);
+          ball.hit = true; 
+        }
+      } else {
+       
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+      }
+    }
+
+   
+    canvas.addEventListener("click", swingBat);
+    window.addEventListener("keydown", e => {
+      if (e.code === "Space") swingBat();
+      if (e.key === "r") resetGame();
+    });
+    restartBtn.onclick = resetGame;
+
+   
+    function resize() {
+      let w = Math.min(400, window.innerWidth * 0.98);
+      canvas.style.width = w + "px";
+      canvas.style.height = (w * 0.8) + "px";
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+ 
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+      };
+    }
+
+   
+    resetGame();
+  </script>
+</body>
+</html>
