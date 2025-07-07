@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Cricket Doodle Style - Final Tweaks</title>
+  <title> Fun Cricket Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { margin:0; background: #0c2e12; }
     .container { display: flex; flex-direction: column; align-items: center; }
@@ -13,36 +14,40 @@
 </head>
 <body>
   <div class="container">
-    <h2>Cricket Google Doodle Style Demo</h2>
+    <h2>Fun Cricket Game</h2>
     <div class="info" id="scoreInfo">Score: 0</div>
     <button onclick="resetGame()">Restart</button>
-    <canvas id="game" width="800" height="400"></canvas>
+    <canvas id="game" width="900" height="440"></canvas>
   </div>
   <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreInfo = document.getElementById("scoreInfo");
 
-const PITCH_X1 = 110, PITCH_X2 = 750;
-const PITCH_Y = 110, PITCH_H = 180;
-const BAT_X = 750, BAT_Y = 200;
-const BAT_W = 6, BAT_H = 42; // Slimmer, shorter bat
+const PITCH_X1 = 130, PITCH_X2 = 770;
+const PITCH_Y = 110, PITCH_H = 220;
+const WICKET1_X = 130, WICKET1_Y = 220;
+const WICKET2_X = 770, WICKET2_Y = 220;
+const STUMP_HEIGHT = 38, STUMP_GAP = 6;
+const FIELD_LEFT = 80, FIELD_TOP = 60, FIELD_RIGHT = 820, FIELD_BOTTOM = 380;
+
+const BAT_X = WICKET2_X + 2, BAT_Y = WICKET2_Y;
+const BAT_W = 8, BAT_H = 38;
 const BALL_RADIUS = 8;
-const BALL_START_X = 120, BALL_START_Y = 200;
-const STUMP1_X = 120, STUMP1_Y = 200;
-const STUMP2_X = 780, STUMP2_Y = 200;
-const STUMP_HEIGHT = 36, STUMP_GAP = 6;
-const FIELD_LEFT = 60, FIELD_TOP = 60, FIELD_RIGHT = 760, FIELD_BOTTOM = 340;
+const BALL_START_X = WICKET1_X + 10, BALL_START_Y = WICKET1_Y;
+
+const BATSMAN1_START = {x: BAT_X-22, y: BAT_Y+32};
+const BATSMAN2_START = {x: WICKET1_X-4, y: BALL_START_Y+32};
 
 let score = 0, running = false, runCount = 0;
 let batAngle = 0, swinging = false, swingFrame = 0;
 let ball, ballMoving = false, ballHit = false, ballOutcome = '';
 let batsmen = [
-  {x: BAT_X-25, y: BAT_Y+35, target: BAT_X-25, base: BAT_X-25},
-  {x: PITCH_X1, y: BALL_START_Y+35, target: PITCH_X1, base: PITCH_X1}
+  {x: BATSMAN1_START.x, y: BATSMAN1_START.y, target: BATSMAN1_START.x, base: BATSMAN1_START.x},
+  {x: BATSMAN2_START.x, y: BATSMAN2_START.y, target: BATSMAN2_START.x, base: BATSMAN2_START.x}
 ];
 let fielders = [], fielder, fielderHasBall = false, fielderThrowing = false, fieldBallX = 0, fieldBallY = 0;
-let animFrame, runAnim = 0, lastCross = false, returningToBowler = false;
+let animFrame, lastCross = false, returningToBowler = false;
 
 function resetGame() {
   score = 0;
@@ -51,15 +56,16 @@ function resetGame() {
   swingFrame = 0;
   runCount = 0;
   running = false;
-  batsmen[0].x = BAT_X-25;
-  batsmen[1].x = PITCH_X1;
-  batsmen[0].target = batsmen[0].base = BAT_X-25;
-  batsmen[1].target = batsmen[1].base = PITCH_X1;
+  batsmen[0].x = BATSMAN1_START.x;
+  batsmen[1].x = BATSMAN2_START.x;
+  batsmen[0].target = batsmen[0].base = BATSMAN1_START.x;
+  batsmen[1].target = batsmen[1].base = BATSMAN2_START.x;
   resetBall();
-  // Place fielders at fixed positions
   fielders = [
-    {x: 400, y: 120, homeX: 400, homeY: 120},
-    {x: 400, y: 320, homeX: 400, homeY: 320}
+    {x: 330, y: 120, homeX: 330, homeY: 120},
+    {x: 330, y: 320, homeX: 330, homeY: 320},
+    {x: 600, y: 170, homeX: 600, homeY: 170},
+    {x: 600, y: 270, homeX: 600, homeY: 270}
   ];
   fielder = null;
   fielderHasBall = false;
@@ -87,10 +93,10 @@ function resetBall() {
   ballOutcome = '';
   running = false;
   runCount = 0;
-  batsmen[0].x = BAT_X-25;
-  batsmen[1].x = PITCH_X1;
-  batsmen[0].target = batsmen[0].base = BAT_X-25;
-  batsmen[1].target = batsmen[1].base = PITCH_X1;
+  batsmen[0].x = BATSMAN1_START.x;
+  batsmen[1].x = BATSMAN2_START.x;
+  batsmen[0].target = batsmen[0].base = BATSMAN1_START.x;
+  batsmen[1].target = batsmen[1].base = BATSMAN2_START.x;
   lastCross = false;
   returningToBowler = false;
 }
@@ -114,68 +120,51 @@ function drawStumps(x, y) {
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // Pitch
   ctx.save();
   ctx.fillStyle = "#f3eaae";
   ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_X2-PITCH_X1, PITCH_H);
   ctx.restore();
-
-  // Both sets of stumps
-  drawStumps(STUMP1_X, STUMP1_Y);
-  drawStumps(STUMP2_X, STUMP2_Y);
-
-  // Field boundary (invisible, for logic only)
-  // ctx.save();ctx.strokeStyle="#f11";ctx.strokeRect(FIELD_LEFT,FIELD_TOP,FIELD_RIGHT-FIELD_LEFT,FIELD_BOTTOM-FIELD_TOP);ctx.restore();
-
-  // Fielders
+  drawStumps(WICKET1_X, WICKET1_Y);
+  drawStumps(WICKET2_X, WICKET2_Y);
   for(const fld of fielders) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(fld.x, fld.y, 17, 0, Math.PI*2);
+    ctx.arc(fld.x, fld.y, 16, 0, Math.PI*2);
     ctx.fillStyle = "#0af";
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(fld.x, fld.y-15, 7, 0, Math.PI*2);
+    ctx.arc(fld.x, fld.y-13, 6, 0, Math.PI*2);
     ctx.fillStyle = "#fff";
     ctx.fill();
     ctx.restore();
   }
-
-  // Batsmen
   for(const b of batsmen) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(b.x, b.y-20, 11, 0, Math.PI*2);
+    ctx.arc(b.x, b.y-18, 10, 0, Math.PI*2);
     ctx.fillStyle = "#ffe100";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(b.x, b.y-9);
-    ctx.lineTo(b.x, b.y+20);
+    ctx.moveTo(b.x, b.y-8);
+    ctx.lineTo(b.x, b.y+18);
     ctx.stroke();
     ctx.restore();
   }
-
-  // Bat (centered in front of stumps now)
   ctx.save();
-  ctx.translate(BAT_X-2, BAT_Y); // -2 for perfect centering with stumps
+  ctx.translate(BAT_X, BAT_Y);
   ctx.rotate(batAngle);
   ctx.fillStyle = "#ebc154";
   ctx.fillRect(-BAT_W/2, -BAT_H, BAT_W, BAT_H);
   ctx.restore();
-
-  // Ball
   ctx.save();
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, 2 * Math.PI);
   ctx.fillStyle = ball.hit ? "#9f0" : "#f11";
   ctx.fill();
   ctx.restore();
-
-  // Fielder throw-ball animation (draw over everything)
   if (fielderThrowing) {
     ctx.save();
     ctx.beginPath();
@@ -184,18 +173,14 @@ function draw() {
     ctx.fill();
     ctx.restore();
   }
-
-  // Running indicator
   if (running) {
     ctx.save();
     ctx.font = "bold 22px Segoe UI";
     ctx.fillStyle = "#ffe100";
-    ctx.fillText("RUNNING...", 340, 50);
+    ctx.fillText("RUNNING...", 370, 55);
     ctx.restore();
   }
-
   if (ballMoving) update();
-
   animFrame = requestAnimationFrame(draw);
 }
 
@@ -217,17 +202,12 @@ function swingBat() {
 }
 
 function update() {
-  // Save previous position for collision detection
   let prevX = ball.x, prevY = ball.y;
-
-  // Ball moves
   if (!ball.hit) {
     ball.x += ball.vx;
     ball.y += ball.vy;
-    // Bat collision detection
     if (batCollide(prevX, prevY, ball.x, ball.y) && swinging) {
       ball.hit = true;
-      // Outcome: random-ish
       let timing = Math.abs(ball.y - BAT_Y);
       let rand = Math.random();
       if (timing < 16 && rand > 0.65) {
@@ -251,35 +231,30 @@ function update() {
         ball.vx = 6; ball.vy = -10;
       }
     }
-    // Missed
     if (ball.x > BAT_X+30 && !ball.hit) {
       ballMoving = false;
       setTimeout(resetBall, 1200);
     }
   } else {
-    // After hit
     if (ball.outcome == "6") {
       ball.x += ball.vx;
       ball.y += ball.vy;
       ball.progress += Math.abs(ball.vx);
-      // Out of bounds
-      if (ball.x > FIELD_RIGHT || ball.x < FIELD_LEFT || ball.y < FIELD_TOP || ball.y > FIELD_BOTTOM || ball.progress > 550) {
-        // Ball out: return to bowler
+      if (outOfBounds(ball.x, ball.y) || ball.progress > 650) {
         returningToBowler = true;
         ballMoving = false;
-        setTimeout(() => {returnToBowler();}, 800);
+        setTimeout(() => {returnToBowler();}, 700);
       }
     } else if (ball.outcome == "4") {
       ball.x += ball.vx;
       ball.y += ball.vy;
       ball.progress += Math.abs(ball.vx);
-      if (ball.x > FIELD_RIGHT || ball.x < FIELD_LEFT || ball.y < FIELD_TOP || ball.y > FIELD_BOTTOM || ball.progress > 460) {
+      if (outOfBounds(ball.x, ball.y) || ball.progress > 540) {
         returningToBowler = true;
         ballMoving = false;
-        setTimeout(() => {returnToBowler();}, 800);
+        setTimeout(() => {returnToBowler();}, 700);
       }
     } else if (ball.outcome == "run") {
-      // Fielder runs to ball
       if (!fielder) {
         let minDist = 9999;
         for (const f of fielders) {
@@ -292,7 +267,6 @@ function update() {
         fieldBallY = ball.y;
         running = true;
         runCount = 0;
-        runAnim = 0;
         batsmen[0].target = batsmen[1].base;
         batsmen[1].target = batsmen[0].base;
         batsmen[0].base = batsmen[0].x;
@@ -300,58 +274,51 @@ function update() {
         lastCross = false;
       }
       if (!fielderHasBall) {
-        // Move fielder to ball
         let dx = ball.x - fielder.x, dy = ball.y - fielder.y;
         let d = Math.sqrt(dx*dx + dy*dy);
         if (d > 3) {
-          fielder.x += dx/d*3.3;
-          fielder.y += dy/d*3.3;
+          fielder.x += dx/d*3.5;
+          fielder.y += dy/d*3.5;
         } else {
           fielderHasBall = true;
           fielderThrowing = true;
         }
-        // Ball slows
         ball.vx *= 0.96;
         ball.vy *= 0.96;
         ball.x += ball.vx;
         ball.y += ball.vy;
       } else if (fielderThrowing) {
-        // Fielder throws ball to stumps (faster!)
-        let dx = STUMP2_X - fielder.x, dy = STUMP2_Y - fielder.y;
+        let dx = WICKET2_X - fielder.x, dy = WICKET2_Y - fielder.y;
         let d = Math.sqrt(dx*dx + dy*dy);
         if (!fieldBallX) { fieldBallX = fielder.x; fieldBallY = fielder.y; }
-        let tx = dx/d*18, ty = dy/d*18; // much faster throw!
+        let tx = dx/d*19, ty = dy/d*19;
         fieldBallX += tx;
         fieldBallY += ty;
-        // When reaches stumps
-        if (Math.abs(fieldBallX-STUMP2_X)<8 && Math.abs(fieldBallY-STUMP2_Y)<8) {
+        if (Math.abs(fieldBallX-WICKET2_X)<8 && Math.abs(fieldBallY-WICKET2_Y)<8) {
           fielderThrowing = false;
           running = false;
           ballMoving = false;
           score += runCount;
           updateScore();
-          setTimeout(resetBall, 900);
-          // Reset fielders to home positions
+          setTimeout(resetBall, 800);
           for(const fld of fielders) {
             fld.x = fld.homeX;
             fld.y = fld.homeY;
           }
           returningToBowler = false;
+          fielder = null;
         }
       }
-      // Smooth auto running batsmen
       if (running) {
-        let speed = 2.1;
+        let speed = 1.8;
         batsmen[0].x += Math.sign(batsmen[0].target - batsmen[0].x) * speed;
         batsmen[1].x += Math.sign(batsmen[1].target - batsmen[1].x) * speed;
-        // When they pass each other, score a run (only once per cross)
         let crossing = (batsmen[0].x < batsmen[1].x+10);
         if (crossing && !lastCross) {
           runCount++;
           lastCross = true;
         }
         if (!crossing) lastCross = false;
-        // When both reach opposite bases, swap targets for next run
         if (Math.abs(batsmen[0].x-batsmen[0].target)<3 && Math.abs(batsmen[1].x-batsmen[1].target)<3) {
           let tmp = batsmen[0].target;
           batsmen[0].target = batsmen[1].base;
@@ -361,41 +328,40 @@ function update() {
         }
       }
     } else if (ball.outcome == "caught") {
-      // Caught!
       ball.y += ball.vy;
       ball.vy += 2;
       if (ball.y > 410) {
         returningToBowler = true;
         ballMoving = false;
-        setTimeout(() => {returnToBowler();}, 1000);
+        setTimeout(() => {returnToBowler();}, 900);
       }
     }
-    // If ball goes out of bounds in any case, return to bowler (except running)
-    if (!returningToBowler && (ball.x > FIELD_RIGHT || ball.x < FIELD_LEFT || ball.y < FIELD_TOP || ball.y > FIELD_BOTTOM) && ball.outcome !== "run") {
+    if (!returningToBowler && outOfBounds(ball.x, ball.y) && ball.outcome !== "run") {
       returningToBowler = true;
       ballMoving = false;
-      setTimeout(() => {returnToBowler();}, 800);
+      setTimeout(() => {returnToBowler();}, 700);
     }
   }
 }
 
+function outOfBounds(x, y) {
+  return (x < FIELD_LEFT || x > FIELD_RIGHT || y < FIELD_TOP || y > FIELD_BOTTOM);
+}
+
 function returnToBowler() {
-  // Reset ball and fielders quickly for next ball
   ballMoving = false;
   returningToBowler = false;
-  setTimeout(resetBall, 600);
-  // Reset fielders to home positions
+  setTimeout(resetBall, 500);
   for(const fld of fielders) {
     fld.x = fld.homeX;
     fld.y = fld.homeY;
   }
+  fielder = null;
 }
 
 function batCollide(px, py, x, y) {
-  // Bat is a vertical rectangle at (BAT_X, BAT_Y), angle batAngle
-  // We'll check the closest point on the ball path segment to the bat's segment
-  let bx1 = BAT_X-2, by1 = BAT_Y;
-  let bx2 = BAT_X-2 + Math.sin(batAngle)*(-BAT_H), by2 = BAT_Y - Math.cos(batAngle)*BAT_H;
+  let bx1 = BAT_X, by1 = BAT_Y;
+  let bx2 = BAT_X + Math.sin(batAngle)*(-BAT_H), by2 = BAT_Y - Math.cos(batAngle)*BAT_H;
   let steps = Math.ceil(Math.hypot(x-px, y-py)/2);
   for (let i=0; i<=steps; ++i) {
     let bx = px + (x-px)*i/steps;
