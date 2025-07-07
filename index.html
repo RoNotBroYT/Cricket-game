@@ -2,43 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title> Fun Cricket Game</title>
+  <title>Cricket Game - Full Field & Centered Bat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { margin:0; background: #0c2e12; }
     .container { display: flex; flex-direction: column; align-items: center; }
-    canvas { background: #183920; border-radius: 16px; margin: 30px 0; }
+    canvas { background: #183920; border-radius: 20px; margin: 30px 0; }
     .info { color: #fff; font-size: 1.1em; margin: 10px 0; }
     button { margin: 10px 0; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Fun Cricket Game</h2>
+    <h2>Cricket Game - Google Doodle Style</h2>
     <div class="info" id="scoreInfo">Score: 0</div>
     <button onclick="resetGame()">Restart</button>
-    <canvas id="game" width="900" height="440"></canvas>
+    <canvas id="game" width="900" height="600"></canvas>
   </div>
   <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreInfo = document.getElementById("scoreInfo");
-
-const PITCH_X1 = 130, PITCH_X2 = 770;
-const PITCH_Y = 110, PITCH_H = 220;
-const WICKET1_X = 130, WICKET1_Y = 220;
-const WICKET2_X = 770, WICKET2_Y = 220;
+const FIELD_CX = 450, FIELD_CY = 300;
+const FIELD_RADIUS = 270;
+const BOUNDARY_RADIUS = 250;
+const PITCH_LENGTH = 420, PITCH_WIDTH = 36;
+const PITCH_X1 = FIELD_CX - PITCH_LENGTH/2, PITCH_X2 = FIELD_CX + PITCH_LENGTH/2;
+const PITCH_Y = FIELD_CY - PITCH_WIDTH/2;
 const STUMP_HEIGHT = 38, STUMP_GAP = 6;
-const FIELD_LEFT = 80, FIELD_TOP = 60, FIELD_RIGHT = 820, FIELD_BOTTOM = 380;
-
-const BAT_X = WICKET2_X + 2, BAT_Y = WICKET2_Y;
+const WICKET1_X = PITCH_X1 + 10, WICKET1_Y = FIELD_CY;
+const WICKET2_X = PITCH_X2 - 10, WICKET2_Y = FIELD_CY;
+const BAT_X = WICKET2_X, BAT_Y = WICKET2_Y;
 const BAT_W = 8, BAT_H = 38;
 const BALL_RADIUS = 8;
-const BALL_START_X = WICKET1_X + 10, BALL_START_Y = WICKET1_Y;
-
-const BATSMAN1_START = {x: BAT_X-22, y: BAT_Y+32};
-const BATSMAN2_START = {x: WICKET1_X-4, y: BALL_START_Y+32};
-
+const BALL_START_X = WICKET1_X, BALL_START_Y = WICKET1_Y;
+const BATSMAN1_START = {x: BAT_X, y: BAT_Y+32};
+const BATSMAN2_START = {x: WICKET1_X, y: BALL_START_Y+32};
 let score = 0, running = false, runCount = 0;
 let batAngle = 0, swinging = false, swingFrame = 0;
 let ball, ballMoving = false, ballHit = false, ballOutcome = '';
@@ -48,7 +47,6 @@ let batsmen = [
 ];
 let fielders = [], fielder, fielderHasBall = false, fielderThrowing = false, fieldBallX = 0, fieldBallY = 0;
 let animFrame, lastCross = false, returningToBowler = false;
-
 function resetGame() {
   score = 0;
   batAngle = 0;
@@ -62,10 +60,10 @@ function resetGame() {
   batsmen[1].target = batsmen[1].base = BATSMAN2_START.x;
   resetBall();
   fielders = [
-    {x: 330, y: 120, homeX: 330, homeY: 120},
-    {x: 330, y: 320, homeX: 330, homeY: 320},
-    {x: 600, y: 170, homeX: 600, homeY: 170},
-    {x: 600, y: 270, homeX: 600, homeY: 270}
+    {x: FIELD_CX-120, y: FIELD_CY-170, homeX: FIELD_CX-120, homeY: FIELD_CY-170},
+    {x: FIELD_CX+140, y: FIELD_CY-100, homeX: FIELD_CX+140, homeY: FIELD_CY-100},
+    {x: FIELD_CX-140, y: FIELD_CY+100, homeX: FIELD_CX-140, homeY: FIELD_CY+100},
+    {x: FIELD_CX+90, y: FIELD_CY+170, homeX: FIELD_CX+90, homeY: FIELD_CY+170}
   ];
   fielder = null;
   fielderHasBall = false;
@@ -75,7 +73,6 @@ function resetGame() {
   cancelAnimationFrame(animFrame);
   draw();
 }
-
 function resetBall() {
   ball = {
     x: BALL_START_X,
@@ -100,11 +97,9 @@ function resetBall() {
   lastCross = false;
   returningToBowler = false;
 }
-
 function updateScore() {
   scoreInfo.textContent = "Score: " + score;
 }
-
 function drawStumps(x, y) {
   ctx.save();
   ctx.strokeStyle = "#fff";
@@ -117,12 +112,25 @@ function drawStumps(x, y) {
   }
   ctx.restore();
 }
-
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI*2);
+  ctx.fillStyle = "#0b461b";
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, BOUNDARY_RADIUS, 0, Math.PI*2);
+  ctx.strokeStyle = "#ffe100";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([16,10]);
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
   ctx.fillStyle = "#f3eaae";
-  ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_X2-PITCH_X1, PITCH_H);
+  ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_X2-PITCH_X1, PITCH_WIDTH);
   ctx.restore();
   drawStumps(WICKET1_X, WICKET1_Y);
   drawStumps(WICKET2_X, WICKET2_Y);
@@ -183,7 +191,6 @@ function draw() {
   if (ballMoving) update();
   animFrame = requestAnimationFrame(draw);
 }
-
 function swingBat() {
   if (swinging || ball.hit) return;
   swinging = true;
@@ -200,7 +207,6 @@ function swingBat() {
   }
   animateSwing();
 }
-
 function update() {
   let prevX = ball.x, prevY = ball.y;
   if (!ball.hit) {
@@ -330,7 +336,7 @@ function update() {
     } else if (ball.outcome == "caught") {
       ball.y += ball.vy;
       ball.vy += 2;
-      if (ball.y > 410) {
+      if (ball.y > 590) {
         returningToBowler = true;
         ballMoving = false;
         setTimeout(() => {returnToBowler();}, 900);
@@ -343,11 +349,10 @@ function update() {
     }
   }
 }
-
 function outOfBounds(x, y) {
-  return (x < FIELD_LEFT || x > FIELD_RIGHT || y < FIELD_TOP || y > FIELD_BOTTOM);
+  let dx = x - FIELD_CX, dy = y - FIELD_CY;
+  return (Math.sqrt(dx*dx + dy*dy) > BOUNDARY_RADIUS + 7);
 }
-
 function returnToBowler() {
   ballMoving = false;
   returningToBowler = false;
@@ -358,7 +363,6 @@ function returnToBowler() {
   }
   fielder = null;
 }
-
 function batCollide(px, py, x, y) {
   let bx1 = BAT_X, by1 = BAT_Y;
   let bx2 = BAT_X + Math.sin(batAngle)*(-BAT_H), by2 = BAT_Y - Math.cos(batAngle)*BAT_H;
@@ -388,7 +392,6 @@ function pointToSegmentDist(px,py, x1,y1, x2,y2) {
   let dy = py - yy;
   return Math.sqrt(dx * dx + dy * dy);
 }
-
 canvas.addEventListener("click", swingBat);
 window.addEventListener("keydown", e => { if (e.code === "Space") swingBat(); });
 resetGame();
