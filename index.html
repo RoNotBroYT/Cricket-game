@@ -96,6 +96,7 @@
     <canvas id="game" width="900" height="700" tabindex="1"></canvas>
   </div>
   <script>
+    // All variables and functions are in this script tag
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     const scoreInfo = document.getElementById("scoreInfo");
@@ -546,18 +547,6 @@
     }
     window.addEventListener("resize", resize);
     resize();
-
-    if (!CanvasRenderingContext2D.prototype.roundRect) {
-      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-        this.beginPath();
-        this.moveTo(x + r, y);
-        this.arcTo(x + w, y, x + w, y + h, r);
-        this.arcTo(x + w, y + h, x, y + h, r);
-        this.arcTo(x, y + h, x, y, r);
-        this.arcTo(x, y, x + w, y, r);
-        this.closePath();
-      };
-    }
 
     resetGame();
   </script>
