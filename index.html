@@ -110,7 +110,6 @@
     const PITCH_X2 = FIELD_CX + PITCH_LENGTH / 2;
     const PITCH_Y = FIELD_CY - PITCH_WIDTH / 2;
 
-    // Reduce bat and ball size!
     const BAT_W = 10, BAT_H = 36, BAT_X = PITCH_X2 - 24, BAT_Y = FIELD_CY + 40;
     const BATMAN_X = PITCH_X2 - 28, BATMAN_Y = FIELD_CY + 36;
     const STUMP_Y = FIELD_CY + 36, STUMP_X = PITCH_X2 + 16, STUMP_HEIGHT = 54, STUMP_GAP = 10;
@@ -120,7 +119,6 @@
     const BOWLER_Y = FIELD_CY + 30;
     const BALL_START_X = PITCH_X1 + 36;
     const BALL_Y = FIELD_CY + 34;
-    // Reduce ball radius!
     const BALL_RADIUS = 8;
 
     const FIELDER_COUNT = 5;
@@ -383,7 +381,6 @@
     }
 
     function rectCircleColliding(circle, rect) {
-     
       let distX = Math.abs(circle.x - rect.x);
       let distY = Math.abs(circle.y - rect.y);
       if (distX > (rect.w/2 + circle.r)) { return false; }
@@ -408,9 +405,7 @@
       }
       if (ball.moving && !ball.hit && !ball.fly) {
         ball.x += ball.vx;
-         ball.y += ball.vy;
-        
-        rectangle-circle overlap
+        ball.y += ball.vy;
         let rect = {
           x: BAT_X + Math.sin(batAngle) * (BAT_H/2),
           y: BAT_Y - Math.cos(batAngle) * (BAT_H/2),
@@ -568,4 +563,3 @@
   </script>
 </body>
 </html>
-   
