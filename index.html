@@ -2,553 +2,204 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Cricket Game</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cricket Bat Demo</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #000 60%, #00eaff 100%);
-      font-family: Segoe UI, Arial, sans-serif;
-      color: #00eaff;
-      min-height: 100vh;
-    }
-    .container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 28px;
-      min-height: 100vh;
-    }
-    h2 {
-      color: #00eaff;
-      margin-bottom: 8px;
-      letter-spacing: 2px;
-    }
-    .info {
-      margin-bottom: 12px;
-      color: #fff;
-      font-size: 1.18rem;
-      font-weight: bold;
-    }
-    .game-btn {
-      background: #111;
-      color: #00eaff;
-      border: 2px solid #00eaff;
-      padding: 6px 18px;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: bold;
-      margin: 10px 0 20px 0;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-      box-shadow: 0 0 16px 0 #00eaff22;
-    }
-    .game-btn:hover, .game-btn:focus {
-      background: #00eaff;
-      color: #111;
-    }
-    canvas {
-      background: #10151b;
-      border-radius: 22px;
-      box-shadow: 0 6px 32px 0 #00eaff55;
-      display: block;
-      margin-bottom: 14px;
-      border: 2px solid #00eaff55;
-      outline: none;
-    }
-    .game-over {
-      color: #ff3860;
-      font-weight: bold;
-      margin-left: 8px;
-    }
-    .run-announce {
-      position: absolute;
-      left: 50%;
-      top: 160px;
-      transform: translateX(-50%);
-      font-size: 3rem;
-      color: #ffe100;
-      font-weight: bold;
-      text-shadow: 0 0 12px #000, 0 0 6px #00eaff;
-      pointer-events: none;
-      z-index: 10;
-      animation: pop 1s ease;
-    }
-    @keyframes pop {
-      0% { opacity: 0; transform: translateX(-50%) scale(0.7);}
-      20% { opacity: 1; transform: translateX(-50%) scale(1.18);}
-      60% { opacity: 1;}
-      100% {opacity: 0; transform: translateX(-50%) scale(1);}
-    }
-    @media (max-width: 1000px) {
-      canvas { width: 98vw !important; height: auto !important; }
-      h2 { font-size: 1.3rem; }
-    }
+    body { background: #222; color: #eee; margin: 0; }
+    .container { display: flex; flex-direction: column; align-items: center; }
+    canvas { background: #103; margin-top: 30px; border-radius: 20px; }
+    .info { color: #fff; font-size: 1.1em; margin: 10px 0; }
+    button { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-  <div class="container" style="position:relative;">
-    <h2>Cricket Game</h2>
-    <div class="info" id="scoreInfo">Score: 0</div>
-    <button class="game-btn" id="restart">Restart</button>
-    <div id="runAnnounce" class="run-announce" style="display:none;"></div>
-    <canvas id="game" width="900" height="700" tabindex="1"></canvas>
-  </div>
-  <script>
-    // All variables and functions are in this script tag
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const scoreInfo = document.getElementById("scoreInfo");
-    const restartBtn = document.getElementById("restart");
-    const runAnnounce = document.getElementById("runAnnounce");
+<div class="container">
+  <h2>Cricket Bat/Collision Demo</h2>
+  <div class="info" id="scoreInfo">Score: 0</div>
+  <button onclick="resetGame()">Restart</button>
+  <canvas id="game" width="720" height="480"></canvas>
+</div>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreInfo = document.getElementById("scoreInfo");
 
-    const FIELD_CX = 450, FIELD_CY = 350;
-    const FIELD_RADIUS = 320;
-    const PITCH_LENGTH = 360;
-    const PITCH_WIDTH = 56;
-    const PITCH_X1 = FIELD_CX - PITCH_LENGTH / 2;
-    const PITCH_X2 = FIELD_CX + PITCH_LENGTH / 2;
-    const PITCH_Y = FIELD_CY - PITCH_WIDTH / 2;
+const BAT_X = 630, BAT_Y = 240;
+const BAT_W = 10, BAT_H = 64;
+const BALL_RADIUS = 9;
+const BALL_START_X = 100, BALL_START_Y = 240;
+const PITCH_Y = 160, PITCH_H = 160;
 
-    const BAT_W = 10, BAT_H = 36, BAT_X = PITCH_X2 - 24, BAT_Y = FIELD_CY + 40;
-    const BATMAN_X = PITCH_X2 - 28, BATMAN_Y = FIELD_CY + 36;
-    const STUMP_Y = FIELD_CY + 36, STUMP_X = PITCH_X2 + 16, STUMP_HEIGHT = 54, STUMP_GAP = 10;
+let score = 0;
+let batAngle = 0;
+let swinging = false;
+let swingFrame = 0;
+let ball, ballMoving = false, ballHit = false;
+let animFrame;
 
-    const BOWLER_START_X = PITCH_X1 - 80;
-    const BOWLER_END_X = PITCH_X1 + 40;
-    const BOWLER_Y = FIELD_CY + 30;
-    const BALL_START_X = PITCH_X1 + 36;
-    const BALL_Y = FIELD_CY + 34;
-    const BALL_RADIUS = 8;
+function resetGame() {
+  score = 0;
+  batAngle = 0;
+  swinging = false;
+  swingFrame = 0;
+  resetBall();
+  updateScore();
+  cancelAnimationFrame(animFrame);
+  draw();
+}
 
-    const FIELDER_COUNT = 5;
-    const FIELDER_RADIUS = 22;
+function resetBall() {
+  ball = {
+    x: BALL_START_X,
+    y: BALL_START_Y,
+    vx: 7,
+    vy: 0,
+    radius: BALL_RADIUS,
+    hit: false
+  };
+  ballMoving = true;
+  ballHit = false;
+}
 
-    const FOUR_RADIUS = FIELD_RADIUS - 48;
-    const SIX_RADIUS = FIELD_RADIUS - 20;
-    const BOUNDRY_WIDTH = 18;
-    const SAND_WIDTH = 44;
+function updateScore() {
+  scoreInfo.textContent = "Score: " + score;
+}
 
-    let score = 0, wickets = 1, gameOver = false, ballsFaced = 0;
-    let batAngle = 0, swinging = false, runResult = '';
-    let animFrame, lastRunTimeout = null;
-    let ball, ballSpeedBase = 8, ballSpeed = 8, bowler, waitingForSwing = true;
-    let batsman;
-    let fielders = [];
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    function resetBall() {
-      ballSpeed = ballSpeedBase + Math.floor(ballsFaced/6)*0.5;
-      ball = {
-        x: BALL_START_X,
-        y: BALL_Y,
-        r: BALL_RADIUS,
-        vx: 0,
-        vy: 0,
-        hit: false,
-        fly: false,
-        flyVx: 0,
-        flyVy: 0,
-        runValue: 0,
-        six: false,
-        four: false,
-        moving: false,
-        fielded: false,
-        caught: false
-      };
-      waitingForSwing = true;
-      bowler.x = BOWLER_START_X;
-      bowler.runup = false;
-      batsman.swinging = false;
-      batsman.swingFrames = 0;
-    }
+  // Pitch
+  ctx.save();
+  ctx.fillStyle = "#fee";
+  ctx.fillRect(60, PITCH_Y, 620, PITCH_H);
+  ctx.restore();
 
-    function resetGame() {
-      score = 0;
-      wickets = 1;
-      gameOver = false;
-      ballsFaced = 0;
+  // Batsman
+  ctx.save();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(BAT_X-36, BAT_Y-30, 13, 0, Math.PI*2); // head
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(BAT_X-36, BAT_Y-17);
+  ctx.lineTo(BAT_X-36, BAT_Y+26);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(BAT_X-36, BAT_Y+7);
+  ctx.lineTo(BAT_X-54, BAT_Y+26);
+  ctx.moveTo(BAT_X-36, BAT_Y+7);
+  ctx.lineTo(BAT_X-18, BAT_Y+26);
+  ctx.stroke();
+  ctx.restore();
+
+  // Bat
+  ctx.save();
+  ctx.translate(BAT_X, BAT_Y);
+  ctx.rotate(batAngle);
+  ctx.fillStyle = "#ebc154";
+  ctx.fillRect(-BAT_W/2, -BAT_H, BAT_W, BAT_H);
+  ctx.restore();
+
+  // Ball
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, 2 * Math.PI);
+  ctx.fillStyle = ball.hit ? "#9f0" : "#f11";
+  ctx.fill();
+  ctx.restore();
+
+  if (ballMoving) update();
+
+  animFrame = requestAnimationFrame(draw);
+}
+
+function swingBat() {
+  if (swinging) return;
+  swinging = true;
+  swingFrame = 0;
+  function animateSwing() {
+    swingFrame++;
+    // A quick swing arc, forward then snap back
+    if (swingFrame <= 7) {
+      batAngle = -Math.PI/3 * Math.sin(Math.PI * swingFrame / 14);
+      requestAnimationFrame(animateSwing);
+    } else {
       batAngle = 0;
       swinging = false;
-      runResult = '';
-      runAnnounce.style.display = "none";
-      bowler = {x: BOWLER_START_X, y: BOWLER_Y, runup: false, step: 0, delivered: false};
-      batsman = {x: BATMAN_X, y: BATMAN_Y, swinging: false, swingFrames: 0};
-      fielders = [];
-      for (let i = 0; i < FIELDER_COUNT; i++) {
-        let angle = Math.PI*2 * (i/FIELDER_COUNT) + Math.PI/5;
-        let dist = FIELD_RADIUS - 40 - Math.random()*60;
-        let fx = FIELD_CX + Math.cos(angle) * dist;
-        let fy = FIELD_CY + Math.sin(angle) * dist;
-        fielders.push({x: fx, y: fy, homeX: fx, homeY: fy, moving: false});
-      }
-      resetBall();
-      updateScore();
-      cancelAnimationFrame(animFrame);
-      draw();
     }
+  }
+  animateSwing();
+}
 
-    function updateScore() {
-      scoreInfo.innerHTML = `Score: ${score} | Wicket: ${wickets}${gameOver ? '<span class="game-over"> Game Over!</span>' : ''}`;
-    }
+function update() {
+  if (!ballMoving) return;
+  // Save previous position for continuous collision detection
+  let prevX = ball.x, prevY = ball.y;
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ball.x += ball.vx;
+  ball.y += ball.vy;
 
-      ctx.save();
-      ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI*2);
-      ctx.fillStyle = "#e7be7e";
-      ctx.shadowColor = "#e7be7e";
-      ctx.shadowBlur = 4;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - SAND_WIDTH, 0, Math.PI*2);
-      ctx.fillStyle = "#dfc181";
-      ctx.fill();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - SAND_WIDTH - BOUNDRY_WIDTH, 0, Math.PI*2);
-      ctx.fillStyle = "#0a6b1a";
-      ctx.fill();
-      ctx.restore();
+  // Bat collision detection - continuous along travel path
+  if (!ball.hit && batCollide(prevX, prevY, ball.x, ball.y)) {
+    ball.hit = true;
+    ballHit = true;
+    ball.vx = 6 + Math.random()*6;
+    ball.vy = (Math.random()-0.5)*5;
+    score += 4;
+    updateScore();
+  }
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(FIELD_CX, FIELD_CY, FOUR_RADIUS, 0, Math.PI*2);
-      ctx.strokeStyle = "#ffe100";
-      ctx.setLineDash([8,12]);
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(FIELD_CX, FIELD_CY, SIX_RADIUS, 0, Math.PI*2);
-      ctx.strokeStyle = "#00eaff";
-      ctx.setLineDash([16,8]);
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
+  // Out of bounds
+  if (ball.x > canvas.width+50 || ball.x < -50 || ball.y < -50 || ball.y > canvas.height+50) {
+    resetBall();
+  }
+}
 
-      ctx.save();
-      ctx.fillStyle = "#f0e1b1";
-      ctx.strokeStyle = "#00eaff";
-      ctx.lineWidth = 2;
-      ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_LENGTH, PITCH_WIDTH);
-      ctx.beginPath();
-      ctx.moveTo(PITCH_X1 + 18, PITCH_Y);
-      ctx.lineTo(PITCH_X1 + 18, PITCH_Y + PITCH_WIDTH);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(PITCH_X2 - 18, PITCH_Y);
-      ctx.lineTo(PITCH_X2 - 18, PITCH_Y + PITCH_WIDTH);
-      ctx.stroke();
-      ctx.restore();
+function batCollide(px, py, x, y) {
+  // Bat is a long rectangle, possibly rotated, at (BAT_X, BAT_Y) angle batAngle, length BAT_H
+  // We'll check the closest point on the ball path segment to the bat's line segment
+  // Bat line: from (BAT_X, BAT_Y) to (BAT_X + sin(angle)*(-BAT_H), BAT_Y - cos(angle)*BAT_H)
+  let bx1 = BAT_X, by1 = BAT_Y;
+  let bx2 = BAT_X + Math.sin(batAngle)*(-BAT_H), by2 = BAT_Y - Math.cos(batAngle)*BAT_H;
 
-      ctx.save();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 7;
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.moveTo(STUMP_X + i * STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2);
-        ctx.lineTo(STUMP_X + i * STUMP_GAP, STUMP_Y + STUMP_HEIGHT/2);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = "#ffe100";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(STUMP_X - STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 3);
-      ctx.lineTo(STUMP_X, STUMP_Y - STUMP_HEIGHT/2 - 13);
-      ctx.lineTo(STUMP_X + STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 3);
-      ctx.stroke();
-      ctx.restore();
+  // For the ball's trajectory segment, check the closest approach to the bat's segment
+  // We'll discretize for safety (every 2 px)
+  let steps = Math.ceil(Math.hypot(x-px, y-py)/2);
+  for (let i=0; i<=steps; ++i) {
+    let bx = px + (x-px)*i/steps;
+    let by = py + (y-py)*i/steps;
+    // distance from (bx,by) to bat segment
+    let d = pointToSegmentDist(bx,by, bx1,by1, bx2,by2);
+    if (d < BALL_RADIUS + BAT_W/2) return true;
+  }
+  return false;
+}
 
-      for (const f of fielders) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, FIELDER_RADIUS, 0, Math.PI*2);
-        ctx.fillStyle = "#1b95e0";
-        ctx.globalAlpha = 0.85;
-        ctx.shadowColor = "#00eaff";
-        ctx.shadowBlur = 6;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(f.x, f.y - 12, 8, 0, Math.PI*2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.restore();
-      }
+function pointToSegmentDist(px,py, x1,y1, x2,y2) {
+  // Returns the distance from point (px,py) to segment (x1,y1)-(x2,y2)
+  let A = px - x1;
+  let B = py - y1;
+  let C = x2 - x1;
+  let D = y2 - y1;
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(bowler.x, bowler.y - 17, 13, 0, Math.PI*2);
-      ctx.fillStyle = "#ffe100";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(bowler.x, bowler.y, 15, Math.PI, Math.PI*2, false);
-      ctx.fillStyle = "#1b95e0";
-      ctx.fill();
-      ctx.restore();
+  let dot = A * C + B * D;
+  let len_sq = C * C + D * D;
+  let param = -1;
+  if (len_sq !== 0) param = dot / len_sq;
 
-      ctx.save();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(batsman.x, batsman.y - 30, 14, 0, Math.PI*2);
-      ctx.fillStyle = "#ffe100";
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-      ctx.save();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 7;
-      ctx.beginPath();
-      ctx.moveTo(batsman.x, batsman.y - 16);
-      ctx.lineTo(batsman.x, batsman.y + 32);
-      ctx.stroke();
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(batsman.x, batsman.y + 16);
-      ctx.lineTo(batsman.x - 18, batsman.y + 38);
-      ctx.moveTo(batsman.x, batsman.y + 16);
-      ctx.lineTo(batsman.x + 20, batsman.y + 38);
-      ctx.stroke();
-      ctx.restore();
+  let xx, yy;
+  if (param < 0) { xx = x1; yy = y1; }
+  else if (param > 1) { xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
 
-      drawBat();
-      drawBall();
+  let dx = px - xx;
+  let dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
 
-      updateScore();
-
-      if (!gameOver) {
-        update();
-        animFrame = requestAnimationFrame(draw);
-      }
-    }
-
-    function drawBat() {
-      ctx.save();
-      ctx.translate(BAT_X, BAT_Y);
-      ctx.rotate(batAngle);
-      ctx.fillStyle = "#ccaa66";
-      ctx.shadowColor = "#ffe100";
-      ctx.shadowBlur = 4;
-      ctx.fillRect(-BAT_W/2, -BAT_H+10, BAT_W, BAT_H);
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-
-    function drawBall() {
-      ctx.save();
-      ctx.shadowColor = "#ffe100";
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, 2 * Math.PI);
-      ctx.fillStyle = "#ff1c1c";
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-
-    function swingBat() {
-      if (gameOver || swinging || !waitingForSwing) return;
-      swinging = true;
-      waitingForSwing = false;
-      bowler.runup = true;
-      batsman.swinging = true;
-      batsman.swingFrames = 0;
-      let swingFrames = 0;
-
-      function animateSwing() {
-        swingFrames++;
-        batAngle = -Math.PI/4 * Math.sin(Math.PI * swingFrames / 10);
-        if (swingFrames < 10) {
-          requestAnimationFrame(animateSwing);
-        } else {
-          batAngle = 0;
-          swinging = false;
-        }
-      }
-      animateSwing();
-    }
-
-    function rectCircleColliding(circle, rect) {
-      let distX = Math.abs(circle.x - rect.x);
-      let distY = Math.abs(circle.y - rect.y);
-      if (distX > (rect.w/2 + circle.r)) { return false; }
-      if (distY > (rect.h/2 + circle.r)) { return false; }
-      if (distX <= (rect.w/2)) { return true; }
-      if (distY <= (rect.h/2)) { return true; }
-      let dx = distX - rect.w/2;
-      let dy = distY - rect.h/2;
-      return (dx*dx + dy*dy <= (circle.r * circle.r));
-    }
-
-    function update() {
-      if (bowler.runup && bowler.x < BOWLER_END_X) {
-        bowler.x += 16;
-        if (bowler.x >= BOWLER_END_X) {
-          bowler.x = BOWLER_END_X;
-          bowler.delivered = true;
-          ball.vx = ballSpeed;
-          ball.vy = 0;
-          ball.moving = true;
-        }
-      }
-      if (ball.moving && !ball.hit && !ball.fly) {
-        ball.x += ball.vx;
-        ball.y += ball.vy;
-        let rect = {
-          x: BAT_X + Math.sin(batAngle) * (BAT_H/2),
-          y: BAT_Y - Math.cos(batAngle) * (BAT_H/2),
-          w: BAT_W + 2,
-          h: BAT_H,
-        };
-        if (rectCircleColliding(ball, rect) && batsman.swinging) {
-          ball.hit = true;
-          ball.fly = true;
-          ball.moving = false;
-          let swingAngle = ((ball.y - BAT_Y) / 60) * Math.PI/6;
-          let swingPower = 1.4 + Math.random()*0.4;
-          ball.flyVx = Math.cos(swingAngle) * 17 * swingPower;
-          ball.flyVy = Math.sin(swingAngle) * 12 * swingPower;
-          let landRadius = Math.min(FIELD_RADIUS-30, Math.sqrt(ball.flyVx*ball.flyVx + ball.flyVy*ball.flyVy) * 22 + 80 + Math.random()*30);
-          if (landRadius > SIX_RADIUS) {
-            ball.runValue = 6;
-            ball.six = true;
-            ball.four = false;
-          } else if (landRadius > FOUR_RADIUS) {
-            ball.runValue = 4;
-            ball.six = false;
-            ball.four = true;
-          } else {
-            ball.runValue = 1;
-            ball.six = false;
-            ball.four = false;
-          }
-        }
-        if (ball.x > BAT_X + 36 && !ball.hit) {
-          ballsFaced++;
-          showRunResult("Missed!");
-          setTimeout(resetBall, 1100);
-          ball.moving = false;
-        }
-      }
-      if (ball.fly) {
-        ball.x += ball.flyVx;
-        ball.y += ball.flyVy;
-        ball.flyVx *= 0.985;
-        ball.flyVy *= 0.985;
-        let fClosest = null, fDist = 99999;
-        for (const f of fielders) {
-          let dx = ball.x - f.x, dy = ball.y - f.y;
-          let d = Math.sqrt(dx*dx + dy*dy);
-          if (d < fDist) {
-            fDist = d;
-            fClosest = f;
-          }
-        }
-        if (fClosest && !ball.fielded) {
-          let dx = ball.x - fClosest.x, dy = ball.y - fClosest.y;
-          let d = Math.sqrt(dx*dx + dy*dy);
-          if (d > 2) {
-            fClosest.x += dx / d * 5.5;
-            fClosest.y += dy / d * 5.5;
-          } else {
-            ball.fielded = true;
-            ballsFaced++;
-            if ((ball.six || ball.four) && Math.random() < 0.20) {
-              showRunResult("Caught!");
-              wickets = 0;
-              gameOver = true;
-              setTimeout(resetBall, 1200);
-            } else {
-              score += ball.runValue;
-              let msg = ball.runValue === 6 ? "SIX!" : ball.runValue === 4 ? "FOUR!" : "+1 Run";
-              showRunResult(msg);
-              setTimeout(resetBall, 1200);
-            }
-            ball.fly = false;
-          }
-        }
-        let distB = Math.sqrt((ball.x - FIELD_CX)*(ball.x - FIELD_CX) + (ball.y - FIELD_CY)*(ball.y - FIELD_CY));
-        if (distB > FIELD_RADIUS - 10 && !ball.fielded) {
-          ballsFaced++;
-          score += ball.runValue;
-          let msg = ball.runValue === 6 ? "SIX!" : ball.runValue === 4 ? "FOUR!" : "+1 Run";
-          showRunResult(msg);
-          setTimeout(resetBall, 1200);
-          ball.fly = false;
-        }
-        if (
-          !ball.six && !ball.four &&
-          Math.abs(ball.flyVx) < 1.5 && Math.abs(ball.flyVy) < 1.5 &&
-          distB < FIELD_RADIUS - 30 && !ball.fielded
-        ) {
-          ballsFaced++;
-          score += ball.runValue;
-          showRunResult("+1 Run");
-          setTimeout(resetBall, 900);
-          ball.fly = false;
-        }
-      }
-      if (!ball.fly && ball.moving && !ball.hit) {
-        if (
-          ball.x + ball.r > STUMP_X - STUMP_GAP * 1.5 &&
-          ball.x - ball.r < STUMP_X + STUMP_GAP * 1.5 &&
-          ball.y + ball.r > STUMP_Y - STUMP_HEIGHT/2 &&
-          ball.y - ball.r < STUMP_Y + STUMP_HEIGHT/2
-        ) {
-          wickets = 0;
-          gameOver = true;
-          showRunResult("Bowled!");
-          setTimeout(resetBall, 1200);
-          ball.moving = false;
-          ball.fly = false;
-        }
-      }
-      if (batsman.swinging) {
-        batsman.swingFrames++;
-        if (batsman.swingFrames > 12) batsman.swinging = false;
-      }
-    }
-
-    function showRunResult(msg) {
-      runResult = msg;
-      runAnnounce.textContent = msg;
-      runAnnounce.style.display = "block";
-      if (lastRunTimeout) clearTimeout(lastRunTimeout);
-      lastRunTimeout = setTimeout(() => {
-        runAnnounce.style.display = "none";
-      }, 950);
-    }
-
-    canvas.addEventListener("click", swingBat);
-    window.addEventListener("keydown", e => {
-      if (e.code === "Space") swingBat();
-      if (e.key === "r") resetGame();
-    });
-    restartBtn.onclick = resetGame;
-
-    function resize() {
-      let w = Math.min(900, window.innerWidth * 0.98);
-      let h = Math.min(700, window.innerHeight * 0.88);
-      canvas.style.width = w + "px";
-      canvas.style.height = h + "px";
-    }
-    window.addEventListener("resize", resize);
-    resize();
-
-    resetGame();
-  </script>
+canvas.addEventListener("click", swingBat);
+window.addEventListener("keydown", e => { if (e.code === "Space") swingBat(); });
+resetGame();
+</script>
 </body>
 </html>
