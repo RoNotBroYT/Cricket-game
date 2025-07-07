@@ -2,29 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fun Cricket Game</title>
+  <title>Cricket Game </title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background: #0c2e12; }
+    html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background: #000; }
     body { position:relative; }
     .container { display: flex; flex-direction: column; align-items: center; }
-    canvas { display:block; margin:0 auto; background: #183920; border-radius: 20px; }
+    canvas { display:block; margin:0 auto; background: #000; border-radius: 20px; }
     .info { position:absolute; left:24px; top:8px; color: #fff; font-size: 1.15em; z-index:2; }
-    button { margin-top: 10px; }
-    h2 { color:#ffe100; margin: 8px 0 0 0; }
+    #restartBtn {
+      position: absolute;
+      right: 32px;
+      top: 10px;
+      background: #00ffe5;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+    #restartBtn:hover { background: #0ff; }
+    h2 { color:#0ff; margin: 8px 0 0 0; }
   </style>
 </head>
 <body>
   <div class="container" style="width:100vw; height:100vh;">
     <h2>Cricket Game</h2>
     <div class="info" id="scoreInfo">Score: 0</div>
+    <button id="restartBtn" onclick="resetGame()">Restart</button>
     <canvas id="game"></canvas>
   </div>
   <script>
 let canvas = document.getElementById("game");
 let ctx = canvas.getContext("2d");
 let scoreInfo = document.getElementById("scoreInfo");
-
 let W = window.innerWidth;
 let H = window.innerHeight;
 let FIELD_CX, FIELD_CY, FIELD_RADIUS, BOUNDARY_RADIUS, PITCH_LENGTH, PITCH_WIDTH;
@@ -33,23 +48,18 @@ let WICKET1_X, WICKET1_Y, WICKET2_X, WICKET2_Y;
 let BAT_X, BAT_Y, BAT_W, BAT_H, BALL_RADIUS, BALL_START_X, BALL_START_Y;
 let BATSMAN1_START, BATSMAN2_START;
 let BOWLER_START_X, BOWLER_RUNUP_X, BOWLER_Y;
-
 let score = 0, running = false, runCount = 0;
 let batAngle = 0, swinging = false, swingFrame = 0;
 let ball, ballMoving = false, ballHit = false, ballOutcome = '';
 let batsmen, fielders, fielder, fielderHasBall = false, fielderThrowing = false, fieldBallX = 0, fieldBallY = 0;
 let animFrame, lastCross = false, returningToBowler = false;
-let bowler, deliveryInProgress = true, batCollisionWindow = 0;
-
+let bowler, deliveryInProgress = true, batCollisionWindow = 0, bowlerBallAttached = true;
 function resize() {
   W = window.innerWidth;
   H = window.innerHeight;
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = W; canvas.height = H;
   let minDim = Math.min(W,H);
-
-  FIELD_CX = W/2;
-  FIELD_CY = H/2;
+  FIELD_CX = W/2; FIELD_CY = H/2;
   FIELD_RADIUS = minDim*0.48;
   BOUNDARY_RADIUS = minDim*0.41;
   PITCH_LENGTH = minDim*0.75;
@@ -57,36 +67,30 @@ function resize() {
   PITCH_X1 = FIELD_CX - PITCH_LENGTH/2;
   PITCH_X2 = FIELD_CX + PITCH_LENGTH/2;
   PITCH_Y = FIELD_CY - PITCH_WIDTH/2;
-  STUMP_HEIGHT = minDim*0.06;
-  STUMP_GAP = minDim*0.01;
+  STUMP_HEIGHT = minDim*0.065;
+  STUMP_GAP = minDim*0.012;
   WICKET1_X = PITCH_X1 + STUMP_GAP*2;
   WICKET1_Y = FIELD_CY;
   WICKET2_X = PITCH_X2 - STUMP_GAP*2;
   WICKET2_Y = FIELD_CY;
-
   BAT_X = WICKET2_X;
   BAT_Y = WICKET2_Y;
-  BAT_W = minDim*0.012;
-  BAT_H = minDim*0.085;
-  BALL_RADIUS = minDim*0.014;
+  BAT_W = minDim*0.014;
+  BAT_H = minDim*0.09;
+  BALL_RADIUS = minDim*0.018;
   BALL_START_X = WICKET1_X;
   BALL_START_Y = WICKET1_Y;
-  BATSMAN1_START = {x: BAT_X, y: BAT_Y+BAT_H*0.85};
-  BATSMAN2_START = {x: WICKET1_X, y: BALL_START_Y+BAT_H*0.85};
+  BATSMAN1_START = {x: BAT_X, y: BAT_Y+BAT_H*0.9};
+  BATSMAN2_START = {x: WICKET1_X, y: BALL_START_Y+BAT_H*0.9};
   BOWLER_START_X = WICKET1_X - PITCH_LENGTH*0.13;
   BOWLER_RUNUP_X = WICKET1_X + PITCH_LENGTH*0.03;
   BOWLER_Y = WICKET1_Y;
   resetGame(true);
 }
 window.addEventListener("resize", resize);
-
 function resetGame(keepScore=false) {
   if (!keepScore) score = 0;
-  batAngle = 0;
-  swinging = false;
-  swingFrame = 0;
-  runCount = 0;
-  running = false;
+  batAngle = 0; swinging = false; swingFrame = 0; runCount = 0; running = false;
   batsmen = [
     {x: BATSMAN1_START.x, y: BATSMAN1_START.y, target: BATSMAN1_START.x, base: BATSMAN1_START.x},
     {x: BATSMAN2_START.x, y: BATSMAN2_START.y, target: BATSMAN2_START.x, base: BATSMAN2_START.x}
@@ -98,12 +102,10 @@ function resetGame(keepScore=false) {
     {x: FIELD_CX-FIELD_RADIUS*0.7, y: FIELD_CY+FIELD_RADIUS*0.45, homeX: FIELD_CX-FIELD_RADIUS*0.7, homeY: FIELD_CY+FIELD_RADIUS*0.45},
     {x: FIELD_CX+FIELD_RADIUS*0.45, y: FIELD_CY+FIELD_RADIUS*0.8, homeX: FIELD_CX+FIELD_RADIUS*0.45, homeY: FIELD_CY+FIELD_RADIUS*0.8}
   ];
-  fielder = null;
-  fielderHasBall = false;
-  fielderThrowing = false;
-  returningToBowler = false;
+  fielder = null; fielderHasBall = false; fielderThrowing = false; returningToBowler = false;
   bowler = {x: BOWLER_START_X, y: BOWLER_Y, vx: Math.max(8, W*0.009), runup: true, delivered: false, armAngle: 0, animFrame: 0};
   deliveryInProgress = true;
+  bowlerBallAttached = true;
   updateScore();
   cancelAnimationFrame(animFrame);
   draw();
@@ -120,19 +122,16 @@ function resetBall() {
     outcome: '',
     progress: 0
   };
-  ballMoving = false;
-  ballHit = false;
-  ballOutcome = '';
-  running = false;
-  runCount = 0;
+  ballMoving = false; ballHit = false; ballOutcome = '';
+  running = false; runCount = 0;
   batsmen[0].x = BATSMAN1_START.x;
   batsmen[1].x = BATSMAN2_START.x;
   batsmen[0].target = batsmen[0].base = BATSMAN1_START.x;
   batsmen[1].target = batsmen[1].base = BATSMAN2_START.x;
-  lastCross = false;
-  returningToBowler = false;
+  lastCross = false; returningToBowler = false;
   bowler = {x: BOWLER_START_X, y: BOWLER_Y, vx: Math.max(8, W*0.009), runup: true, delivered: false, armAngle: 0, animFrame: 0};
   deliveryInProgress = true;
+  bowlerBallAttached = true;
   batCollisionWindow = 0;
 }
 function updateScore() {
@@ -185,21 +184,25 @@ function drawBowler(bowler) {
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+  ctx.save();
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI*2);
-  ctx.fillStyle = "#0b461b";
+  ctx.fillStyle = "#000";
   ctx.fill();
   ctx.restore();
   ctx.save();
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, BOUNDARY_RADIUS, 0, Math.PI*2);
-  ctx.strokeStyle = "#ffe100";
-  ctx.lineWidth = Math.max(4, W*0.006);
-  ctx.setLineDash([Math.max(16,W*0.018),Math.max(10,W*0.014)]);
+  ctx.strokeStyle = "#00ffe5";
+  ctx.lineWidth = Math.max(4, W*0.007);
+  ctx.setLineDash([Math.max(22,W*0.022),Math.max(14,W*0.018)]);
   ctx.stroke();
   ctx.restore();
   ctx.save();
-  ctx.fillStyle = "#f3eaae";
+  ctx.fillStyle = "#111520";
   ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_X2-PITCH_X1, PITCH_WIDTH);
   ctx.restore();
   drawStumps(WICKET1_X, WICKET1_Y);
@@ -209,7 +212,7 @@ function draw() {
     ctx.save();
     ctx.beginPath();
     ctx.arc(fld.x, fld.y, BAT_H*0.34, 0, Math.PI*2);
-    ctx.fillStyle = "#0af";
+    ctx.fillStyle = "#00ffe5";
     ctx.fill();
     ctx.beginPath();
     ctx.arc(fld.x, fld.y-BAT_H*0.32, BAT_H*0.13, 0, Math.PI*2);
@@ -241,7 +244,7 @@ function draw() {
   ctx.save();
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, 2 * Math.PI);
-  ctx.fillStyle = ball.hit ? "#9f0" : "#f11";
+  ctx.fillStyle = ball.hit ? "#0ff" : "#fff";
   ctx.fill();
   ctx.restore();
   if (fielderThrowing) {
@@ -255,7 +258,7 @@ function draw() {
   if (running) {
     ctx.save();
     ctx.font = `bold ${Math.max(24,W*0.025)}px Segoe UI`;
-    ctx.fillStyle = "#ffe100";
+    ctx.fillStyle = "#00ffe5";
     ctx.fillText("RUNNING...", FIELD_CX-60, 55);
     ctx.restore();
   }
@@ -286,26 +289,37 @@ function update() {
       bowler.x += bowler.vx;
       bowler.armAngle = Math.sin(bowler.animFrame/7)*0.4-Math.PI/2;
       bowler.animFrame++;
-      ball.x = bowler.x + BAT_H*0.7;
-      ball.y = bowler.y - BAT_H*0.6;
-      ballMoving = false;
       if (bowler.x >= BOWLER_RUNUP_X) {
         bowler.runup = false;
         bowler.armAngle = -Math.PI/2;
-        setTimeout(() => {bowler.delivered = true;}, 200);
+        setTimeout(() => {bowler.delivered = true;}, 180);
       }
+      ball.x = bowler.x + BAT_H*0.7;
+      ball.y = bowler.y - BAT_H*0.6;
+      bowlerBallAttached = true;
+      ballMoving = false;
     } else if (!bowler.runup && !bowler.delivered) {
       bowler.armAngle += 0.18;
       if (bowler.armAngle > Math.PI/2) {
         bowler.delivered = true;
+        bowlerBallAttached = false;
         ball.x = WICKET1_X + BAT_H*0.35;
         ball.y = WICKET1_Y;
         ball.vx = FIELD_RADIUS*0.034;
         ball.vy = 0;
         ballMoving = true;
         deliveryInProgress = false;
+      } else {
+        // Ball follows bowler arm
+        let bx = bowler.x + Math.cos(bowler.armAngle)*BAT_H*0.7;
+        let by = bowler.y - Math.sin(bowler.armAngle)*BAT_H*0.7 - BAT_H*0.3;
+        ball.x = bx;
+        ball.y = by;
+        bowlerBallAttached = true;
+        ballMoving = false;
       }
-    } else if (!bowler.runup && bowler.delivered) {
+    }
+    else if (!bowler.runup && bowler.delivered) {
       bowler.armAngle = Math.PI/2;
     }
     return;
@@ -314,7 +328,7 @@ function update() {
   if (!ball.hit) {
     ball.x += ball.vx;
     ball.y += ball.vy;
-    if (batCollisionWindow > 0 && Math.abs(ball.x - BAT_X) < BAT_H*0.7 && Math.abs(ball.y - BAT_Y) < BAT_H*0.9) {
+    if (batCollisionWindow > 0 && Math.abs(ball.x - BAT_X) < BAT_H*0.8 && Math.abs(ball.y - BAT_Y) < BAT_H) {
       if (batCollide(prevX, prevY, ball.x, ball.y)) {
         ball.hit = true;
         let timing = Math.abs(ball.y - BAT_Y);
@@ -349,21 +363,15 @@ function update() {
     }
   } else {
     if (ball.outcome == "6") {
-      ball.x += ball.vx;
-      ball.y += ball.vy;
-      ball.progress += Math.abs(ball.vx);
+      ball.x += ball.vx; ball.y += ball.vy; ball.progress += Math.abs(ball.vx);
       if (outOfBounds(ball.x, ball.y) || ball.progress > FIELD_RADIUS*2.8) {
-        returningToBowler = true;
-        ballMoving = false;
+        returningToBowler = true; ballMoving = false;
         setTimeout(() => {returnToBowler();}, 700);
       }
     } else if (ball.outcome == "4") {
-      ball.x += ball.vx;
-      ball.y += ball.vy;
-      ball.progress += Math.abs(ball.vx);
+      ball.x += ball.vx; ball.y += ball.vy; ball.progress += Math.abs(ball.vx);
       if (outOfBounds(ball.x, ball.y) || ball.progress > FIELD_RADIUS*2.0) {
-        returningToBowler = true;
-        ballMoving = false;
+        returningToBowler = true; ballMoving = false;
         setTimeout(() => {returnToBowler();}, 700);
       }
     } else if (ball.outcome == "run") {
@@ -373,52 +381,29 @@ function update() {
           let d = Math.abs(f.x - ball.x) + Math.abs(f.y - ball.y);
           if (d < minDist) { minDist = d; fielder = f; }
         }
-        fielderHasBall = false;
-        fielderThrowing = false;
-        fieldBallX = ball.x;
-        fieldBallY = ball.y;
-        running = true;
-        runCount = 0;
-        batsmen[0].target = batsmen[1].base;
-        batsmen[1].target = batsmen[0].base;
-        batsmen[0].base = batsmen[0].x;
-        batsmen[1].base = batsmen[1].x;
-        lastCross = false;
+        fielderHasBall = false; fielderThrowing = false;
+        fieldBallX = ball.x; fieldBallY = ball.y; running = true; runCount = 0;
+        batsmen[0].target = batsmen[1].base; batsmen[1].target = batsmen[0].base;
+        batsmen[0].base = batsmen[0].x; batsmen[1].base = batsmen[1].x; lastCross = false;
       }
       if (!fielderHasBall) {
         let dx = ball.x - fielder.x, dy = ball.y - fielder.y;
         let d = Math.sqrt(dx*dx + dy*dy);
-        if (d > 4) {
-          fielder.x += dx/d*FIELD_RADIUS*0.018;
-          fielder.y += dy/d*FIELD_RADIUS*0.018;
-        } else {
-          fielderHasBall = true;
-          fielderThrowing = true;
-        }
-        ball.vx *= 0.96;
-        ball.vy *= 0.96;
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+        if (d > 4) { fielder.x += dx/d*FIELD_RADIUS*0.018; fielder.y += dy/d*FIELD_RADIUS*0.018; }
+        else { fielderHasBall = true; fielderThrowing = true; }
+        ball.vx *= 0.96; ball.vy *= 0.96; ball.x += ball.vx; ball.y += ball.vy;
       } else if (fielderThrowing) {
         let dx = WICKET2_X - fielder.x, dy = WICKET2_Y - fielder.y;
         let d = Math.sqrt(dx*dx + dy*dy);
         if (!fieldBallX) { fieldBallX = fielder.x; fieldBallY = fielder.y; }
         let tx = dx/d*FIELD_RADIUS*0.06, ty = dy/d*FIELD_RADIUS*0.06;
-        fieldBallX += tx;
-        fieldBallY += ty;
+        fieldBallX += tx; fieldBallY += ty;
         if (Math.abs(fieldBallX-WICKET2_X)<BALL_RADIUS && Math.abs(fieldBallY-WICKET2_Y)<BALL_RADIUS) {
-          fielderThrowing = false;
-          running = false;
-          ballMoving = false;
-          score += runCount;
-          updateScore();
+          fielderThrowing = false; running = false; ballMoving = false;
+          score += runCount; updateScore();
           setTimeout(resetBall, 800);
-          for(const fld of fielders) {
-            fld.x = fld.homeX;
-            fld.y = fld.homeY;
-          }
-          returningToBowler = false;
-          fielder = null;
+          for(const fld of fielders) { fld.x = fld.homeX; fld.y = fld.homeY; }
+          returningToBowler = false; fielder = null;
         }
       }
       if (running) {
@@ -426,10 +411,7 @@ function update() {
         batsmen[0].x += Math.sign(batsmen[0].target - batsmen[0].x) * speed;
         batsmen[1].x += Math.sign(batsmen[1].target - batsmen[1].x) * speed;
         let crossing = (batsmen[0].x < batsmen[1].x+BAT_W*1.6);
-        if (crossing && !lastCross) {
-          runCount++;
-          lastCross = true;
-        }
+        if (crossing && !lastCross) { runCount++; lastCross = true; }
         if (!crossing) lastCross = false;
         if (Math.abs(batsmen[0].x-batsmen[0].target)<3 && Math.abs(batsmen[1].x-batsmen[1].target)<3) {
           let tmp = batsmen[0].target;
@@ -440,17 +422,12 @@ function update() {
         }
       }
     } else if (ball.outcome == "caught") {
-      ball.y += ball.vy;
-      ball.vy += FIELD_RADIUS*0.01;
-      if (ball.y > H+80) {
-        returningToBowler = true;
-        ballMoving = false;
-        setTimeout(() => {returnToBowler();}, 900);
-      }
+      ball.y += ball.vy; ball.vy += FIELD_RADIUS*0.01;
+      if (ball.y > H+80) { returningToBowler = true; ballMoving = false;
+        setTimeout(() => {returnToBowler();}, 900); }
     }
     if (!returningToBowler && outOfBounds(ball.x, ball.y) && ball.outcome !== "run") {
-      returningToBowler = true;
-      ballMoving = false;
+      returningToBowler = true; ballMoving = false;
       setTimeout(() => {returnToBowler();}, 700);
     }
   }
@@ -460,13 +437,9 @@ function outOfBounds(x, y) {
   return (Math.sqrt(dx*dx + dy*dy) > BOUNDARY_RADIUS + BALL_RADIUS*1.4);
 }
 function returnToBowler() {
-  ballMoving = false;
-  returningToBowler = false;
+  ballMoving = false; returningToBowler = false;
   setTimeout(resetBall, 500);
-  for(const fld of fielders) {
-    fld.x = fld.homeX;
-    fld.y = fld.homeY;
-  }
+  for(const fld of fielders) { fld.x = fld.homeX; fld.y = fld.homeY; }
   fielder = null;
 }
 function batCollide(px, py, x, y) {
