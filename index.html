@@ -110,7 +110,8 @@
     const PITCH_X2 = FIELD_CX + PITCH_LENGTH / 2;
     const PITCH_Y = FIELD_CY - PITCH_WIDTH / 2;
 
-    const BAT_W = 20, BAT_H = 68, BAT_X = PITCH_X2 - 24, BAT_Y = FIELD_CY + 40;
+    // Reduce bat and ball size!
+    const BAT_W = 10, BAT_H = 36, BAT_X = PITCH_X2 - 24, BAT_Y = FIELD_CY + 40;
     const BATMAN_X = PITCH_X2 - 28, BATMAN_Y = FIELD_CY + 36;
     const STUMP_Y = FIELD_CY + 36, STUMP_X = PITCH_X2 + 16, STUMP_HEIGHT = 54, STUMP_GAP = 10;
 
@@ -119,7 +120,8 @@
     const BOWLER_Y = FIELD_CY + 30;
     const BALL_START_X = PITCH_X1 + 36;
     const BALL_Y = FIELD_CY + 34;
-    const BALL_RADIUS = 16;
+    // Reduce ball radius!
+    const BALL_RADIUS = 8;
 
     const FIELDER_COUNT = 5;
     const FIELDER_RADIUS = 22;
@@ -380,6 +382,19 @@
       animateSwing();
     }
 
+    function rectCircleColliding(circle, rect) {
+     
+      let distX = Math.abs(circle.x - rect.x);
+      let distY = Math.abs(circle.y - rect.y);
+      if (distX > (rect.w/2 + circle.r)) { return false; }
+      if (distY > (rect.h/2 + circle.r)) { return false; }
+      if (distX <= (rect.w/2)) { return true; }
+      if (distY <= (rect.h/2)) { return true; }
+      let dx = distX - rect.w/2;
+      let dy = distY - rect.h/2;
+      return (dx*dx + dy*dy <= (circle.r * circle.r));
+    }
+
     function update() {
       if (bowler.runup && bowler.x < BOWLER_END_X) {
         bowler.x += 16;
@@ -393,17 +408,23 @@
       }
       if (ball.moving && !ball.hit && !ball.fly) {
         ball.x += ball.vx;
-        ball.y += ball.vy;
-        let dx = ball.x - BAT_X, dy = ball.y - BAT_Y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < BAT_H / 2 + ball.r && batsman.swinging) {
+         ball.y += ball.vy;
+        
+        rectangle-circle overlap
+        let rect = {
+          x: BAT_X + Math.sin(batAngle) * (BAT_H/2),
+          y: BAT_Y - Math.cos(batAngle) * (BAT_H/2),
+          w: BAT_W + 2,
+          h: BAT_H,
+        };
+        if (rectCircleColliding(ball, rect) && batsman.swinging) {
           ball.hit = true;
           ball.fly = true;
           ball.moving = false;
           let swingAngle = ((ball.y - BAT_Y) / 60) * Math.PI/6;
-          let swingPower = 1.6 + Math.random()*0.7;
-          ball.flyVx = Math.cos(swingAngle) * 20 * swingPower;
-          ball.flyVy = Math.sin(swingAngle) * 13 * swingPower;
+          let swingPower = 1.4 + Math.random()*0.4;
+          ball.flyVx = Math.cos(swingAngle) * 17 * swingPower;
+          ball.flyVy = Math.sin(swingAngle) * 12 * swingPower;
           let landRadius = Math.min(FIELD_RADIUS-30, Math.sqrt(ball.flyVx*ball.flyVx + ball.flyVy*ball.flyVy) * 22 + 80 + Math.random()*30);
           if (landRadius > SIX_RADIUS) {
             ball.runValue = 6;
@@ -547,3 +568,4 @@
   </script>
 </body>
 </html>
+   
