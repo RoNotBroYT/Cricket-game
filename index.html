@@ -6,18 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
-      height: 100%;
       margin: 0;
       padding: 0;
       background: linear-gradient(135deg, #000 60%, #00eaff 100%);
       font-family: Segoe UI, Arial, sans-serif;
       color: #00eaff;
+      min-height: 100vh;
     }
     .container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 32px;
+      padding-top: 28px;
       min-height: 100vh;
     }
     h2 {
@@ -28,7 +28,7 @@
     .info {
       margin-bottom: 12px;
       color: #fff;
-      font-size: 1.1rem;
+      font-size: 1.18rem;
       font-weight: bold;
     }
     .game-btn {
@@ -50,7 +50,7 @@
     }
     canvas {
       background: #10151b;
-      border-radius: 16px;
+      border-radius: 22px;
       box-shadow: 0 6px 32px 0 #00eaff55;
       display: block;
       margin-bottom: 14px;
@@ -65,7 +65,7 @@
     .run-announce {
       position: absolute;
       left: 50%;
-      top: 140px;
+      top: 160px;
       transform: translateX(-50%);
       font-size: 3rem;
       color: #ffe100;
@@ -81,14 +81,9 @@
       60% { opacity: 1;}
       100% {opacity: 0; transform: translateX(-50%) scale(1);}
     }
-    @media (max-width: 520px) {
-      canvas {
-        width: 98vw !important;
-        height: auto !important;
-      }
-      h2 {
-        font-size: 1.3rem;
-      }
+    @media (max-width: 1000px) {
+      canvas { width: 98vw !important; height: auto !important; }
+      h2 { font-size: 1.3rem; }
     }
   </style>
 </head>
@@ -98,7 +93,7 @@
     <div class="info" id="scoreInfo">Score: 0</div>
     <button class="game-btn" id="restart">Restart</button>
     <div id="runAnnounce" class="run-announce" style="display:none;"></div>
-    <canvas id="game" width="600" height="600" tabindex="1"></canvas>
+    <canvas id="game" width="900" height="700" tabindex="1"></canvas>
   </div>
   <script>
     const canvas = document.getElementById("game");
@@ -107,30 +102,39 @@
     const restartBtn = document.getElementById("restart");
     const runAnnounce = document.getElementById("runAnnounce");
 
-    const FIELD_CX = 300, FIELD_CY = 300;
-    const FIELD_RADIUS = 260;
-    const PITCH_LENGTH = 240;
-    const PITCH_WIDTH = 38;
+    const FIELD_CX = 450, FIELD_CY = 350;
+    const FIELD_RADIUS = 320;
+    const PITCH_LENGTH = 360;
+    const PITCH_WIDTH = 56;
     const PITCH_X1 = FIELD_CX - PITCH_LENGTH / 2;
     const PITCH_X2 = FIELD_CX + PITCH_LENGTH / 2;
     const PITCH_Y = FIELD_CY - PITCH_WIDTH / 2;
 
-    const BAT_W = 10, BAT_H = 35, BAT_X = PITCH_X2 - 18, BAT_Y = FIELD_CY;
-    const STUMP_Y = FIELD_CY, STUMP_X = PITCH_X2 + 8, STUMP_HEIGHT = 36, STUMP_GAP = 7;
+    const BAT_W = 20, BAT_H = 68, BAT_X = PITCH_X2 - 24, BAT_Y = FIELD_CY + 40;
+    const BATMAN_X = PITCH_X2 - 28, BATMAN_Y = FIELD_CY + 36;
+    const STUMP_Y = FIELD_CY + 36, STUMP_X = PITCH_X2 + 16, STUMP_HEIGHT = 54, STUMP_GAP = 10;
 
-    const BALL_START_X = PITCH_X1 + 10;
-    const BALL_Y = FIELD_CY;
-    const BALL_RADIUS = 12;
+    const BOWLER_START_X = PITCH_X1 - 80;
+    const BOWLER_END_X = PITCH_X1 + 40;
+    const BOWLER_Y = FIELD_CY + 30;
+    const BALL_START_X = PITCH_X1 + 36;
+    const BALL_Y = FIELD_CY + 34;
+    const BALL_RADIUS = 16;
 
-    const FOUR_RADIUS = FIELD_RADIUS - 38;
-    const SIX_RADIUS = FIELD_RADIUS - 12;
-    const BOUNDRY_WIDTH = 14;
-    const SAND_WIDTH = 26;
+    const FIELDER_COUNT = 5;
+    const FIELDER_RADIUS = 22;
 
-    let score = 0, wickets = 1, gameOver = false;
+    const FOUR_RADIUS = FIELD_RADIUS - 48;
+    const SIX_RADIUS = FIELD_RADIUS - 20;
+    const BOUNDRY_WIDTH = 18;
+    const SAND_WIDTH = 44;
+
+    let score = 0, wickets = 1, gameOver = false, ballsFaced = 0;
     let batAngle = 0, swinging = false, runResult = '';
-    let ball, ballSpeedBase = 6, ballSpeed = 6, ballsFaced = 0;
     let animFrame, lastRunTimeout = null;
+    let ball, ballSpeedBase = 8, ballSpeed = 8, bowler, waitingForSwing = true;
+    let batsman;
+    let fielders = [];
 
     function resetBall() {
       ballSpeed = ballSpeedBase + Math.floor(ballsFaced/6)*0.5;
@@ -138,7 +142,7 @@
         x: BALL_START_X,
         y: BALL_Y,
         r: BALL_RADIUS,
-        vx: ballSpeed,
+        vx: 0,
         vy: 0,
         hit: false,
         fly: false,
@@ -146,20 +150,37 @@
         flyVy: 0,
         runValue: 0,
         six: false,
-        four: false
+        four: false,
+        moving: false,
+        fielded: false,
+        caught: false
       };
+      waitingForSwing = true;
+      bowler.x = BOWLER_START_X;
+      bowler.runup = false;
+      batsman.swinging = false;
+      batsman.swingFrames = 0;
     }
 
     function resetGame() {
       score = 0;
       wickets = 1;
       gameOver = false;
+      ballsFaced = 0;
       batAngle = 0;
       swinging = false;
-      ballsFaced = 0;
-      ballSpeedBase = 6;
       runResult = '';
       runAnnounce.style.display = "none";
+      bowler = {x: BOWLER_START_X, y: BOWLER_Y, runup: false, step: 0, delivered: false};
+      batsman = {x: BATMAN_X, y: BATMAN_Y, swinging: false, swingFrames: 0};
+      fielders = [];
+      for (let i = 0; i < FIELDER_COUNT; i++) {
+        let angle = Math.PI*2 * (i/FIELDER_COUNT) + Math.PI/5;
+        let dist = FIELD_RADIUS - 40 - Math.random()*60;
+        let fx = FIELD_CX + Math.cos(angle) * dist;
+        let fy = FIELD_CY + Math.sin(angle) * dist;
+        fielders.push({x: fx, y: fy, homeX: fx, homeY: fy, moving: false});
+      }
       resetBall();
       updateScore();
       cancelAnimationFrame(animFrame);
@@ -174,7 +195,6 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
-      ctx.beginPath();
       ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI*2);
       ctx.fillStyle = "#e7be7e";
       ctx.shadowColor = "#e7be7e";
@@ -182,14 +202,12 @@
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.restore();
-
       ctx.save();
       ctx.beginPath();
       ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - SAND_WIDTH, 0, Math.PI*2);
       ctx.fillStyle = "#dfc181";
       ctx.fill();
       ctx.restore();
-
       ctx.save();
       ctx.beginPath();
       ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - SAND_WIDTH - BOUNDRY_WIDTH, 0, Math.PI*2);
@@ -219,18 +237,18 @@
       ctx.lineWidth = 2;
       ctx.fillRect(PITCH_X1, PITCH_Y, PITCH_LENGTH, PITCH_WIDTH);
       ctx.beginPath();
-      ctx.moveTo(PITCH_X1 + 12, PITCH_Y);
-      ctx.lineTo(PITCH_X1 + 12, PITCH_Y + PITCH_WIDTH);
+      ctx.moveTo(PITCH_X1 + 18, PITCH_Y);
+      ctx.lineTo(PITCH_X1 + 18, PITCH_Y + PITCH_WIDTH);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(PITCH_X2 - 12, PITCH_Y);
-      ctx.lineTo(PITCH_X2 - 12, PITCH_Y + PITCH_WIDTH);
+      ctx.moveTo(PITCH_X2 - 18, PITCH_Y);
+      ctx.lineTo(PITCH_X2 - 18, PITCH_Y + PITCH_WIDTH);
       ctx.stroke();
       ctx.restore();
 
       ctx.save();
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 7;
       for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
         ctx.moveTo(STUMP_X + i * STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2);
@@ -238,16 +256,76 @@
         ctx.stroke();
       }
       ctx.strokeStyle = "#ffe100";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(STUMP_X - STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 2);
-      ctx.lineTo(STUMP_X, STUMP_Y - STUMP_HEIGHT/2 - 7);
-      ctx.lineTo(STUMP_X + STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 2);
+      ctx.moveTo(STUMP_X - STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 3);
+      ctx.lineTo(STUMP_X, STUMP_Y - STUMP_HEIGHT/2 - 13);
+      ctx.lineTo(STUMP_X + STUMP_GAP, STUMP_Y - STUMP_HEIGHT/2 - 3);
+      ctx.stroke();
+      ctx.restore();
+
+      for (const f of fielders) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, FIELDER_RADIUS, 0, Math.PI*2);
+        ctx.fillStyle = "#1b95e0";
+        ctx.globalAlpha = 0.85;
+        ctx.shadowColor = "#00eaff";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(f.x, f.y - 12, 8, 0, Math.PI*2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(bowler.x, bowler.y - 17, 13, 0, Math.PI*2);
+      ctx.fillStyle = "#ffe100";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(bowler.x, bowler.y, 15, Math.PI, Math.PI*2, false);
+      ctx.fillStyle = "#1b95e0";
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(batsman.x, batsman.y - 30, 14, 0, Math.PI*2);
+      ctx.fillStyle = "#ffe100";
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(batsman.x, batsman.y - 16);
+      ctx.lineTo(batsman.x, batsman.y + 32);
+      ctx.stroke();
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(batsman.x, batsman.y + 16);
+      ctx.lineTo(batsman.x - 18, batsman.y + 38);
+      ctx.moveTo(batsman.x, batsman.y + 16);
+      ctx.lineTo(batsman.x + 20, batsman.y + 38);
       ctx.stroke();
       ctx.restore();
 
       drawBat();
       drawBall();
+
       updateScore();
 
       if (!gameOver) {
@@ -260,10 +338,10 @@
       ctx.save();
       ctx.translate(BAT_X, BAT_Y);
       ctx.rotate(batAngle);
-      ctx.fillStyle = "#00eaff";
-      ctx.shadowColor = "#00eaff";
-      ctx.shadowBlur = 8;
-      ctx.fillRect(-BAT_W/2, -BAT_H/2, BAT_W, BAT_H);
+      ctx.fillStyle = "#ccaa66";
+      ctx.shadowColor = "#ffe100";
+      ctx.shadowBlur = 4;
+      ctx.fillRect(-BAT_W/2, -BAT_H+10, BAT_W, BAT_H);
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -271,23 +349,28 @@
     function drawBall() {
       ctx.save();
       ctx.shadowColor = "#ffe100";
-      ctx.shadowBlur = 7;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, 2 * Math.PI);
-      ctx.fillStyle = "#ffe100";
+      ctx.fillStyle = "#ff1c1c";
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.restore();
     }
 
     function swingBat() {
-      if (gameOver || swinging) return;
+      if (gameOver || swinging || !waitingForSwing) return;
       swinging = true;
+      waitingForSwing = false;
+      bowler.runup = true;
+      batsman.swinging = true;
+      batsman.swingFrames = 0;
       let swingFrames = 0;
+
       function animateSwing() {
         swingFrames++;
-        batAngle = -Math.PI/5 * Math.sin(Math.PI * swingFrames / 8);
-        if (swingFrames < 8) {
+        batAngle = -Math.PI/4 * Math.sin(Math.PI * swingFrames / 10);
+        if (swingFrames < 10) {
           requestAnimationFrame(animateSwing);
         } else {
           batAngle = 0;
@@ -295,40 +378,113 @@
         }
       }
       animateSwing();
-
-      if (
-        !ball.hit &&
-        Math.abs(ball.x - BAT_X) < 18 &&
-        Math.abs(ball.y - BAT_Y) < 32 &&
-        !ball.fly
-      ) {
-        ball.hit = true;
-        ball.fly = true;
-        let swingAngle = ((ball.y - BAT_Y) / 40) * Math.PI/6;
-        let power = 1.2 + Math.random()*0.6;
-        ball.flyVx = Math.cos(swingAngle) * 13 * power;
-        ball.flyVy = Math.sin(swingAngle) * 10 * power;
-        let distance = Math.sqrt(ball.flyVx*ball.flyVx + ball.flyVy*ball.flyVy) * 18;
-        let landRadius = Math.min(FIELD_RADIUS-20, distance+70+Math.random()*20);
-        if (landRadius > SIX_RADIUS) {
-          ball.runValue = 6;
-          ball.six = true;
-          ball.four = false;
-        } else if (landRadius > FOUR_RADIUS) {
-          ball.runValue = 4;
-          ball.six = false;
-          ball.four = true;
-        } else {
-          ball.runValue = 1;
-          ball.six = false;
-          ball.four = false;
-        }
-      }
     }
 
     function update() {
-      if (!ball.hit && !ball.fly) {
+      if (bowler.runup && bowler.x < BOWLER_END_X) {
+        bowler.x += 16;
+        if (bowler.x >= BOWLER_END_X) {
+          bowler.x = BOWLER_END_X;
+          bowler.delivered = true;
+          ball.vx = ballSpeed;
+          ball.vy = 0;
+          ball.moving = true;
+        }
+      }
+      if (ball.moving && !ball.hit && !ball.fly) {
         ball.x += ball.vx;
+        ball.y += ball.vy;
+        let dx = ball.x - BAT_X, dy = ball.y - BAT_Y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < BAT_H / 2 + ball.r && batsman.swinging) {
+          ball.hit = true;
+          ball.fly = true;
+          ball.moving = false;
+          let swingAngle = ((ball.y - BAT_Y) / 60) * Math.PI/6;
+          let swingPower = 1.6 + Math.random()*0.7;
+          ball.flyVx = Math.cos(swingAngle) * 20 * swingPower;
+          ball.flyVy = Math.sin(swingAngle) * 13 * swingPower;
+          let landRadius = Math.min(FIELD_RADIUS-30, Math.sqrt(ball.flyVx*ball.flyVx + ball.flyVy*ball.flyVy) * 22 + 80 + Math.random()*30);
+          if (landRadius > SIX_RADIUS) {
+            ball.runValue = 6;
+            ball.six = true;
+            ball.four = false;
+          } else if (landRadius > FOUR_RADIUS) {
+            ball.runValue = 4;
+            ball.six = false;
+            ball.four = true;
+          } else {
+            ball.runValue = 1;
+            ball.six = false;
+            ball.four = false;
+          }
+        }
+        if (ball.x > BAT_X + 36 && !ball.hit) {
+          ballsFaced++;
+          showRunResult("Missed!");
+          setTimeout(resetBall, 1100);
+          ball.moving = false;
+        }
+      }
+      if (ball.fly) {
+        ball.x += ball.flyVx;
+        ball.y += ball.flyVy;
+        ball.flyVx *= 0.985;
+        ball.flyVy *= 0.985;
+        let fClosest = null, fDist = 99999;
+        for (const f of fielders) {
+          let dx = ball.x - f.x, dy = ball.y - f.y;
+          let d = Math.sqrt(dx*dx + dy*dy);
+          if (d < fDist) {
+            fDist = d;
+            fClosest = f;
+          }
+        }
+        if (fClosest && !ball.fielded) {
+          let dx = ball.x - fClosest.x, dy = ball.y - fClosest.y;
+          let d = Math.sqrt(dx*dx + dy*dy);
+          if (d > 2) {
+            fClosest.x += dx / d * 5.5;
+            fClosest.y += dy / d * 5.5;
+          } else {
+            ball.fielded = true;
+            ballsFaced++;
+            if ((ball.six || ball.four) && Math.random() < 0.20) {
+              showRunResult("Caught!");
+              wickets = 0;
+              gameOver = true;
+              setTimeout(resetBall, 1200);
+            } else {
+              score += ball.runValue;
+              let msg = ball.runValue === 6 ? "SIX!" : ball.runValue === 4 ? "FOUR!" : "+1 Run";
+              showRunResult(msg);
+              setTimeout(resetBall, 1200);
+            }
+            ball.fly = false;
+          }
+        }
+        let distB = Math.sqrt((ball.x - FIELD_CX)*(ball.x - FIELD_CX) + (ball.y - FIELD_CY)*(ball.y - FIELD_CY));
+        if (distB > FIELD_RADIUS - 10 && !ball.fielded) {
+          ballsFaced++;
+          score += ball.runValue;
+          let msg = ball.runValue === 6 ? "SIX!" : ball.runValue === 4 ? "FOUR!" : "+1 Run";
+          showRunResult(msg);
+          setTimeout(resetBall, 1200);
+          ball.fly = false;
+        }
+        if (
+          !ball.six && !ball.four &&
+          Math.abs(ball.flyVx) < 1.5 && Math.abs(ball.flyVy) < 1.5 &&
+          distB < FIELD_RADIUS - 30 && !ball.fielded
+        ) {
+          ballsFaced++;
+          score += ball.runValue;
+          showRunResult("+1 Run");
+          setTimeout(resetBall, 900);
+          ball.fly = false;
+        }
+      }
+      if (!ball.fly && ball.moving && !ball.hit) {
         if (
           ball.x + ball.r > STUMP_X - STUMP_GAP * 1.5 &&
           ball.x - ball.r < STUMP_X + STUMP_GAP * 1.5 &&
@@ -338,43 +494,14 @@
           wickets = 0;
           gameOver = true;
           showRunResult("Bowled!");
-          setTimeout(draw, 30);
-          ball.hit = true;
-        }
-        if (ball.x >= BAT_X + 18 && !ball.hit && !gameOver) {
-          ballsFaced++;
-          showRunResult("Missed!");
-          setTimeout(resetBall, 900);
-          ball.hit = true;
-        }
-      } else if (ball.fly) {
-        ball.x += ball.flyVx;
-        ball.y += ball.flyVy;
-        ball.flyVx *= 0.985;
-        ball.flyVy *= 0.985;
-        let dist = Math.sqrt(
-          (ball.x - FIELD_CX)*(ball.x - FIELD_CX) +
-          (ball.y - FIELD_CY)*(ball.y - FIELD_CY)
-        );
-        if (dist > FIELD_RADIUS - 10) {
-          ballsFaced++;
-          score += ball.runValue;
-          let msg = ball.runValue === 6 ? "SIX!" : ball.runValue === 4 ? "FOUR!" : "+1 Run";
-          showRunResult(msg);
-          setTimeout(resetBall, 1100);
+          setTimeout(resetBall, 1200);
+          ball.moving = false;
           ball.fly = false;
         }
-        if (
-          !ball.six && !ball.four &&
-          Math.abs(ball.flyVx) < 1.5 && Math.abs(ball.flyVy) < 1.5 &&
-          dist < FIELD_RADIUS - 16
-        ) {
-          ballsFaced++;
-          score += ball.runValue;
-          showRunResult("+1 Run");
-          setTimeout(resetBall, 900);
-          ball.fly = false;
-        }
+      }
+      if (batsman.swinging) {
+        batsman.swingFrames++;
+        if (batsman.swingFrames > 12) batsman.swinging = false;
       }
     }
 
@@ -396,9 +523,10 @@
     restartBtn.onclick = resetGame;
 
     function resize() {
-      let w = Math.min(600, window.innerWidth * 0.98);
+      let w = Math.min(900, window.innerWidth * 0.98);
+      let h = Math.min(700, window.innerHeight * 0.88);
       canvas.style.width = w + "px";
-      canvas.style.height = w + "px";
+      canvas.style.height = h + "px";
     }
     window.addEventListener("resize", resize);
     resize();
